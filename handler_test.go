@@ -268,6 +268,6 @@ func BenchmarkStdHTTPHandler(b *testing.B) {
 //$ go test -bench=. -run=404
 //goos: darwin
 //goarch: amd64
-//pkg: github.com/xuxinx/goutils/jsonh
-//BenchmarkToHandler-8        	  300000	      4035 ns/op
-//BenchmarkStdHTTPHandler-8   	  500000	      3072 ns/op
+//pkg: github.com/xuxinx/jsonh
+//BenchmarkToHandler-4        	  500000	      3179 ns/op
+//BenchmarkStdHTTPHandler-4   	  500000	      2476 ns/op
