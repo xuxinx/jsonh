@@ -1,3 +1,4 @@
+// Package jsonh convert Go func to http.Handler that handle json request and response json
 package jsonh
 
 import (
@@ -23,16 +24,13 @@ var noDataSuccessResp, _ = jsoniter.Marshal(&Resp{
 	Msg:  "success",
 })
 
-// f should be like `func(r, input) (output, error)`
+// ToHandler convert f to http.Handler.
 //
-// input and output can be omitted
-//
-// r:
-//   *http.Request
-// input:
-//   struct or struct pointer
-// output:
-//   any type
+// f should be like `func(r, input) (output, error)`,
+// input and output can be omitted.
+// r is *http.Request.
+// input can be struct or struct pointer.
+// output can be any type
 func ToHandler(f interface{}) http.Handler {
 	fV := reflect.ValueOf(f)
 	fT := reflect.TypeOf(f)
