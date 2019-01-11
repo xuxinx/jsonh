@@ -10,6 +10,8 @@ import (
 )
 
 var errorType = reflect.TypeOf((*error)(nil)).Elem()
+var httpResponseWriteType = reflect.TypeOf((*http.ResponseWriter)(nil)).Elem()
+var httpRequestType = reflect.TypeOf((*http.Request)(nil))
 
 var systemErrorResp, _ = jsoniter.Marshal(&Resp{
 	Code: http.StatusInternalServerError,
@@ -26,36 +28,52 @@ var noDataSuccessResp, _ = jsoniter.Marshal(&Resp{
 
 // ToHandler convert f to http.Handler.
 //
-// f should be like `func(r, input) (output, error)`,
-// input and output can be omitted.
+// f should be like `func(w, r, input) (output, error)`,
+// w, r, input and output can be omitted.
+// w is http.ResponseWriter.
 // r is *http.Request.
-// input can be struct or struct pointer.
-// output can be any type
+// input is struct pointer.
+// output can be any type.
 func ToHandler(f interface{}) http.Handler {
 	fV := reflect.ValueOf(f)
 	fT := reflect.TypeOf(f)
 
-	var inT reflect.Type
-	var isInPtr bool
-	numIn := fT.NumIn()
-	if numIn == 0 {
-		panic("missing *http.Request")
+	if fT.Kind() != reflect.Func {
+		panic("f is not a function")
 	}
-	if numIn > 2 {
+
+	var hasW bool
+	var hasR bool
+	var inT reflect.Type
+	numIn := fT.NumIn()
+	if numIn > 3 {
 		panic("too many params")
 	}
-	if fT.In(0) != reflect.TypeOf((*http.Request)(nil)) {
-		panic("fist param is not *http.Request")
-	}
-	if numIn == 2 {
-		inT = fT.In(1)
-		if inT.Kind() != reflect.Struct &&
-			!(inT.Kind() == reflect.Ptr && inT.Elem().Kind() == reflect.Struct) {
-			panic("input is not struct or struct pointer")
-		}
-
-		if inT.Kind() == reflect.Ptr {
-			isInPtr = true
+	for i := 0; i < numIn; i++ {
+		if fT.In(i) == httpResponseWriteType {
+			if hasW {
+				panic("too many param w")
+			}
+			if hasR || inT != nil {
+				panic("param w wrong place")
+			}
+			hasW = true
+		} else if fT.In(i) == httpRequestType {
+			if hasR {
+				panic("too many param r")
+			}
+			if inT != nil {
+				panic("param r wrong place")
+			}
+			hasR = true
+		} else {
+			if inT != nil {
+				panic("too many param input")
+			}
+			inT = fT.In(i)
+			if !(inT.Kind() == reflect.Ptr && inT.Elem().Kind() == reflect.Struct) {
+				panic("param input is not struct pointer")
+			}
 		}
 	}
 
@@ -63,7 +81,7 @@ func ToHandler(f interface{}) http.Handler {
 	if numOut == 0 {
 		panic("missing return error")
 	}
-	if numIn > 2 {
+	if numOut > 2 {
 		panic("too many return params")
 	}
 	if !fT.Out(numOut - 1).Implements(errorType) {
@@ -76,16 +94,15 @@ func ToHandler(f interface{}) http.Handler {
 
 		var callResp []reflect.Value
 		{
-			callIn := make([]reflect.Value, 1, 2)
-			callIn[0] = reflect.ValueOf(r)
+			callIn := make([]reflect.Value, 0, 3)
+			if hasW {
+				callIn = append(callIn, reflect.ValueOf(w))
+			}
+			if hasR {
+				callIn = append(callIn, reflect.ValueOf(r))
+			}
 			if inT != nil {
-				var in interface{}
-				if isInPtr {
-					in = reflect.New(inT.Elem()).Interface()
-				} else {
-					in = reflect.New(inT).Interface()
-				}
-
+				in := reflect.New(inT.Elem()).Interface()
 				err = jsoniter.NewDecoder(r.Body).Decode(in)
 				if err != nil {
 					w.WriteHeader(http.StatusUnprocessableEntity)
@@ -93,14 +110,7 @@ func ToHandler(f interface{}) http.Handler {
 					return
 				}
 
-				var inV reflect.Value
-				if isInPtr {
-					inV = reflect.ValueOf(in)
-				} else {
-					inV = reflect.ValueOf(in).Elem()
-				}
-
-				callIn = append(callIn, inV)
+				callIn = append(callIn, reflect.ValueOf(in))
 			}
 			callResp = fV.Call(callIn)
 		}

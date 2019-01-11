@@ -39,7 +39,7 @@ func TestToHandler(t *testing.T) {
 	}{
 		// success
 		{
-			f: func(r *http.Request, input *Input) (*Output, error) {
+			f: func(w http.ResponseWriter, r *http.Request, input *Input) (*Output, error) {
 				if input.I1 == "b" {
 					return nil, cerr.New(1000, "err b")
 				}
@@ -65,7 +65,7 @@ func TestToHandler(t *testing.T) {
 		},
 		// struct input
 		{
-			f: func(r *http.Request, input Input) (*Output, error) {
+			f: func(w http.ResponseWriter, input *Input) (*Output, error) {
 				if input.I1 == "b" {
 					return nil, cerr.New(1000, "err b")
 				}
@@ -79,7 +79,7 @@ func TestToHandler(t *testing.T) {
 					O3: input.I3,
 				}, nil
 			},
-			input: Input{
+			input: &Input{
 				I1: "a",
 				I2: 11,
 				I3: &Obj{
@@ -117,7 +117,7 @@ func TestToHandler(t *testing.T) {
 		},
 		// unknown error
 		{
-			f: func(r *http.Request, input *Input) (*Output, error) {
+			f: func(input *Input) (*Output, error) {
 				if input.I1 == "b" {
 					return nil, cerr.New(1000, "err b")
 				}
@@ -144,7 +144,7 @@ func TestToHandler(t *testing.T) {
 
 		// no input
 		{
-			f: func(r *http.Request) (*Output, error) {
+			f: func() (*Output, error) {
 				return &Output{
 					O1: "a",
 					O2: 11,
@@ -160,7 +160,7 @@ func TestToHandler(t *testing.T) {
 
 		// no output
 		{
-			f: func(r *http.Request, input *Input) error {
+			f: func() error {
 				return nil
 			},
 			input: &Input{
