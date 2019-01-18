@@ -1,9 +1,8 @@
-package jsonh_test
+package jsonh
 
 import (
+	"errors"
 	"fmt"
-	"github.com/xuxinx/cerr"
-	"github.com/xuxinx/jsonh"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,7 +18,7 @@ func Example_allParamsAndReturns() {
 		O string
 	}
 
-	mux.Handle("/t", jsonh.ToHandler(func(w http.ResponseWriter, r *http.Request, in *Input) (*Output, error) {
+	mux.Handle("/t", ToHandler(func(w http.ResponseWriter, r *http.Request, in *Input) (*Output, error) {
 		return &Output{
 			O: in.I,
 		}, nil
@@ -44,7 +43,7 @@ func Example_allParamsAndReturns() {
 func Example_hello() {
 	mux := http.NewServeMux()
 
-	mux.Handle("/hello", jsonh.ToHandler(func() (string, error) {
+	mux.Handle("/hello", ToHandler(func() (string, error) {
 		return "hello", nil
 	}))
 
@@ -75,7 +74,7 @@ func Example_greet() {
 		Reply string
 	}
 
-	mux.Handle("/greet", jsonh.ToHandler(func(g *Greet) (*GreetResponse, error) {
+	mux.Handle("/greet", ToHandler(func(g *Greet) (*GreetResponse, error) {
 		return &GreetResponse{
 			Reply: fmt.Sprintf("Thx for %q", g.Greet),
 		}, nil
@@ -97,13 +96,16 @@ func Example_greet() {
 	//{"code":200,"msg":"success","data":{"Reply":"Thx for \"hello\""}}
 }
 
-// If error is CodeError(github.com/xuxinx/cerr), will response the specific error code.
+// if the response error implements Coder, then response the specific error code.
 // Otherwise, return {"code":500,"msg":"system error"}
 func Example_cerr() {
 	mux := http.NewServeMux()
 
-	mux.Handle("/cerr", jsonh.ToHandler(func() error {
-		return cerr.New(1001, "special error")
+	mux.Handle("/cerr", ToHandler(func() error {
+		return &CodeError{
+			err:  errors.New("special error"),
+			code: 1001,
+		}
 	}))
 
 	r, err := http.NewRequest(http.MethodGet, "/cerr", nil)

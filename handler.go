@@ -2,26 +2,24 @@
 package jsonh
 
 import (
+	"encoding/json"
 	"net/http"
 	"reflect"
-
-	"github.com/json-iterator/go"
-	"github.com/xuxinx/cerr"
 )
 
 var errorType = reflect.TypeOf((*error)(nil)).Elem()
 var httpResponseWriteType = reflect.TypeOf((*http.ResponseWriter)(nil)).Elem()
 var httpRequestType = reflect.TypeOf((*http.Request)(nil))
 
-var systemErrorResp, _ = jsoniter.Marshal(&Resp{
+var systemErrorResp, _ = json.Marshal(&Resp{
 	Code: http.StatusInternalServerError,
 	Msg:  "system error",
 })
-var requestParamErrorResp, _ = jsoniter.Marshal(&Resp{
+var requestParamErrorResp, _ = json.Marshal(&Resp{
 	Code: http.StatusUnprocessableEntity,
 	Msg:  "input error",
 })
-var noDataSuccessResp, _ = jsoniter.Marshal(&Resp{
+var noDataSuccessResp, _ = json.Marshal(&Resp{
 	Code: http.StatusOK,
 	Msg:  "success",
 })
@@ -103,7 +101,7 @@ func ToHandler(f interface{}) http.Handler {
 			}
 			if inT != nil {
 				in := reflect.New(inT.Elem()).Interface()
-				err = jsoniter.NewDecoder(r.Body).Decode(in)
+				err = json.NewDecoder(r.Body).Decode(in)
 				if err != nil {
 					w.WriteHeader(http.StatusUnprocessableEntity)
 					w.Write(requestParamErrorResp)
@@ -117,16 +115,16 @@ func ToHandler(f interface{}) http.Handler {
 
 		respErr := callResp[len(callResp)-1]
 		if !respErr.IsNil() {
-			cErr, ok := respErr.Interface().(cerr.CodeError)
+			cErr, ok := respErr.Interface().(Coder)
 			if !ok {
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Write(systemErrorResp)
 				return
 			}
 
-			resBuf, _ := jsoniter.Marshal(&Resp{
+			resBuf, _ := json.Marshal(&Resp{
 				Code: cErr.Code(),
-				Msg:  cErr.Error(),
+				Msg:  respErr.Interface().(error).Error(),
 			})
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write(resBuf)
@@ -134,7 +132,7 @@ func ToHandler(f interface{}) http.Handler {
 		}
 
 		if len(callResp) > 1 {
-			resBuf, _ := jsoniter.Marshal(&Resp{
+			resBuf, _ := json.Marshal(&Resp{
 				Code: http.StatusOK,
 				Msg:  "success",
 				Data: callResp[0].Interface(),

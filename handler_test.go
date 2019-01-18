@@ -1,6 +1,8 @@
 package jsonh
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"net/http"
@@ -8,9 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/json-iterator/go"
 	"github.com/stretchr/testify/assert"
-	"github.com/xuxinx/cerr"
 )
 
 type Obj struct {
@@ -29,6 +29,19 @@ type Output struct {
 	O3 *Obj   `json:"o3"`
 }
 
+type CodeError struct {
+	err  error
+	code int
+}
+
+func (cerr *CodeError) Error() string {
+	return cerr.err.Error()
+}
+
+func (cerr *CodeError) Code() int {
+	return cerr.code
+}
+
 func TestToHandler(t *testing.T) {
 	cases := []struct {
 		f     interface{}
@@ -41,7 +54,10 @@ func TestToHandler(t *testing.T) {
 		{
 			f: func(w http.ResponseWriter, r *http.Request, input *Input) (*Output, error) {
 				if input.I1 == "b" {
-					return nil, cerr.New(1000, "err b")
+					return nil, &CodeError{
+						err:  errors.New("err b"),
+						code: 1000,
+					}
 				}
 				if input.I1 == "c" {
 					return nil, errors.New("err c")
@@ -67,7 +83,10 @@ func TestToHandler(t *testing.T) {
 		{
 			f: func(w http.ResponseWriter, input *Input) (*Output, error) {
 				if input.I1 == "b" {
-					return nil, cerr.New(1000, "err b")
+					return nil, &CodeError{
+						err:  errors.New("err b"),
+						code: 1000,
+					}
 				}
 				if input.I1 == "c" {
 					return nil, errors.New("err c")
@@ -93,7 +112,10 @@ func TestToHandler(t *testing.T) {
 		{
 			f: func(r *http.Request, input *Input) (*Output, error) {
 				if input.I1 == "b" {
-					return nil, cerr.New(1000, "err b")
+					return nil, &CodeError{
+						err:  errors.New("err b"),
+						code: 1000,
+					}
 				}
 				if input.I1 == "c" {
 					return nil, errors.New("err c")
@@ -119,7 +141,10 @@ func TestToHandler(t *testing.T) {
 		{
 			f: func(input *Input) (*Output, error) {
 				if input.I1 == "b" {
-					return nil, cerr.New(1000, "err b")
+					return nil, &CodeError{
+						err:  errors.New("err b"),
+						code: 1000,
+					}
 				}
 				if input.I1 == "c" {
 					return nil, errors.New("err c")
@@ -180,8 +205,8 @@ func TestToHandler(t *testing.T) {
 		if c.input == nil {
 			r, err = http.NewRequest(http.MethodGet, "/t", nil)
 		} else {
-			input, _ := jsoniter.MarshalToString(c.input)
-			r, err = http.NewRequest(http.MethodGet, "/t", strings.NewReader(input))
+			input, _ := json.Marshal(c.input)
+			r, err = http.NewRequest(http.MethodGet, "/t", bytes.NewReader(input))
 		}
 		assert.NoError(t, err)
 		w := httptest.NewRecorder()
@@ -245,10 +270,10 @@ func BenchmarkStdHTTPHandler(b *testing.B) {
 	mux.Handle("/t", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		bodyData, _ := ioutil.ReadAll(r.Body)
 		in := &Input{}
-		jsoniter.Unmarshal(bodyData, in)
+		json.Unmarshal(bodyData, in)
 		o, _ := f(r, in)
 		w.WriteHeader(http.StatusOK)
-		jsoniter.NewEncoder(w).Encode(o)
+		json.NewEncoder(w).Encode(o)
 	}))
 
 	var r *http.Request
@@ -269,5 +294,5 @@ func BenchmarkStdHTTPHandler(b *testing.B) {
 //goos: darwin
 //goarch: amd64
 //pkg: github.com/xuxinx/jsonh
-//BenchmarkToHandler-4        	  500000	      3179 ns/op
-//BenchmarkStdHTTPHandler-4   	  500000	      2476 ns/op
+//BenchmarkToHandler-4        	  300000	      4737 ns/op
+//BenchmarkStdHTTPHandler-4   	  500000	      3583 ns/op
