@@ -33,6 +33,13 @@ var noDataSuccessResp, _ = json.Marshal(&Resp{
 // input is struct pointer.
 // output can be any type.
 func ToHandler(f interface{}) http.Handler {
+	return ToHandlerWithErrorFunc(f, nil)
+}
+
+// Can make error to impl type Coder by ErrorFunc
+type ErrorFunc func(error) error
+
+func ToHandlerWithErrorFunc(f interface{}, ef ErrorFunc) http.Handler {
 	fV := reflect.ValueOf(f)
 	fT := reflect.TypeOf(f)
 
@@ -115,7 +122,11 @@ func ToHandler(f interface{}) http.Handler {
 
 		respErr := callResp[len(callResp)-1]
 		if !respErr.IsNil() {
-			cErr, ok := respErr.Interface().(Coder)
+			rErr := respErr.Interface().(error)
+			if ef != nil {
+				rErr = ef(rErr)
+			}
+			cErr, ok := rErr.(Coder)
 			if !ok {
 				w.WriteHeader(http.StatusInternalServerError)
 				w.Write(systemErrorResp)

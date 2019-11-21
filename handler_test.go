@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/xuxinx/cerr"
 )
 
 type Obj struct {
@@ -40,6 +41,38 @@ func (cerr *CodeError) Error() string {
 
 func (cerr *CodeError) Code() int {
 	return cerr.code
+}
+
+func TestErrorFunc(t *testing.T) {
+	mux := http.NewServeMux()
+	// nil ErrorFunc
+	mux.Handle("/t1", ToHandlerWithErrorFunc(func(r *http.Request, input *Input) error {
+		return errors.New("t1 error")
+	}, nil))
+	// has ErrorFunc
+	mux.Handle("/t2", ToHandlerWithErrorFunc(func(r *http.Request, input *Input) error {
+		return errors.New("t2 error")
+	}, func(e error) error {
+		return cerr.New(100, e.Error())
+	}))
+
+	input, _ := json.Marshal(&Input{})
+
+	r, err := http.NewRequest(http.MethodGet, "/t1", bytes.NewReader(input))
+	assert.NoError(t, err)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, r)
+	resp := w.Result()
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+	assert.Equal(t, `{"code":500,"msg":"system error"}`, string(w.Body.Bytes()))
+
+	r, err = http.NewRequest(http.MethodGet, "/t2", bytes.NewReader(input))
+	assert.NoError(t, err)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, r)
+	resp = w.Result()
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, `{"code":100,"msg":"t2 error"}`, string(w.Body.Bytes()))
 }
 
 func TestToHandler(t *testing.T) {
