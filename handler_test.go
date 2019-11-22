@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/xuxinx/cerr"
 )
 
 type Obj struct {
@@ -53,7 +52,10 @@ func TestErrorFunc(t *testing.T) {
 	mux.Handle("/t2", ToHandlerWithErrorFunc(func(r *http.Request, input *Input) error {
 		return errors.New("t2 error")
 	}, func(e error) error {
-		return cerr.New(100, e.Error())
+		return &CodeError{
+			err:  e,
+			code: 100,
+		}
 	}))
 
 	input, _ := json.Marshal(&Input{})

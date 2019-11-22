@@ -36,7 +36,21 @@ func ToHandler(f interface{}) http.Handler {
 	return ToHandlerWithErrorFunc(f, nil)
 }
 
-// Can make error to impl type Coder by ErrorFunc
+// ErrorFunc is used to make error impl type Coder
+// e.g. gRPC status error
+// import (
+// 	"github.com/xuxinx/cerr"
+// 	"google.golang.org/grpc/status"
+// )
+//
+// func ErrorFunc(e error) error {
+// 	st, ok := status.FromError(e)
+// 	if !ok {
+// 		return e
+// 	}
+//
+// 	return cerr.New(int(st.Code()), e.Error())
+// }
 type ErrorFunc func(error) error
 
 func ToHandlerWithErrorFunc(f interface{}, ef ErrorFunc) http.Handler {
