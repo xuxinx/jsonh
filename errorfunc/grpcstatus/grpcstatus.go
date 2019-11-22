@@ -1,6 +1,8 @@
 package grpcstatus
 
 import (
+	"strings"
+
 	"github.com/xuxinx/cerr"
 	"google.golang.org/grpc/status"
 )
@@ -11,5 +13,5 @@ func ErrorFunc(e error) error {
 		return e
 	}
 
-	return cerr.New(int(st.Code()), st.Message())
+	return cerr.New(int(st.Code()), strings.Split(e.Error(), "desc = ")[1])
 }
