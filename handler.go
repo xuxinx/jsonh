@@ -135,7 +135,7 @@ func ToHandlerWithErrorFunc(f interface{}, ef ErrorFunc) http.Handler {
 
 			resBuf, _ := json.Marshal(&Resp{
 				Code: cErr.Code(),
-				Msg:  respErr.Interface().(error).Error(),
+				Msg:  rErr.Error(),
 			})
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write(resBuf)
