@@ -8,18 +8,18 @@ import (
 )
 
 var errorType = reflect.TypeOf((*error)(nil)).Elem()
-var httpResponseWriteType = reflect.TypeOf((*http.ResponseWriter)(nil)).Elem()
+var httpResponseWriterType = reflect.TypeOf((*http.ResponseWriter)(nil)).Elem()
 var httpRequestType = reflect.TypeOf((*http.Request)(nil))
 
 var systemErrorResp, _ = json.Marshal(&Resp{
 	Code: http.StatusInternalServerError,
 	Msg:  "system error",
 })
-var requestParamErrorResp, _ = json.Marshal(&Resp{
+var unprocessableRequestParamsResp, _ = json.Marshal(&Resp{
 	Code: http.StatusUnprocessableEntity,
-	Msg:  "input error",
+	Msg:  "unprocessable request params",
 })
-var noDataSuccessResp, _ = json.Marshal(&Resp{
+var successWithoutDataResp, _ = json.Marshal(&Resp{
 	Code: http.StatusOK,
 	Msg:  "success",
 })
@@ -39,7 +39,7 @@ func ToHandler(f interface{}) http.Handler {
 // ErrorFunc is used to make error impl type Coder
 // e.g. gRPC status error
 // import (
-// 	"github.com/xuxinx/cerr"
+// 	"github.com/xuxinx/jsonh/cerr"
 // 	"google.golang.org/grpc/status"
 // )
 //
@@ -54,9 +54,12 @@ func ToHandler(f interface{}) http.Handler {
 type ErrorFunc func(error) error
 
 func ToHandlerWithErrorFunc(f interface{}, ef ErrorFunc) http.Handler {
-	fV := reflect.ValueOf(f)
-	fT := reflect.TypeOf(f)
+	if f == nil {
+		panic("f cannot be nil")
+	}
 
+	fV := reflect.ValueOf(f)
+	fT := fV.Type()
 	if fT.Kind() != reflect.Func {
 		panic("f is not a function")
 	}
@@ -69,7 +72,8 @@ func ToHandlerWithErrorFunc(f interface{}, ef ErrorFunc) http.Handler {
 		panic("too many params")
 	}
 	for i := 0; i < numIn; i++ {
-		if fT.In(i) == httpResponseWriteType {
+		pT := fT.In(i)
+		if pT == httpResponseWriterType {
 			if hasW {
 				panic("too many param w")
 			}
@@ -77,7 +81,7 @@ func ToHandlerWithErrorFunc(f interface{}, ef ErrorFunc) http.Handler {
 				panic("param w wrong place")
 			}
 			hasW = true
-		} else if fT.In(i) == httpRequestType {
+		} else if pT == httpRequestType {
 			if hasR {
 				panic("too many param r")
 			}
@@ -89,8 +93,8 @@ func ToHandlerWithErrorFunc(f interface{}, ef ErrorFunc) http.Handler {
 			if inT != nil {
 				panic("too many param input")
 			}
-			inT = fT.In(i)
-			if !(inT.Kind() == reflect.Ptr && inT.Elem().Kind() == reflect.Struct) {
+			inT = pT
+			if inT.Kind() != reflect.Ptr || inT.Elem().Kind() != reflect.Struct {
 				panic("param input is not struct pointer")
 			}
 		}
@@ -108,8 +112,9 @@ func ToHandlerWithErrorFunc(f interface{}, ef ErrorFunc) http.Handler {
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
 		var err error
+
+		w.Header().Set("Content-Type", "application/json")
 
 		var callResp []reflect.Value
 		{
@@ -125,7 +130,7 @@ func ToHandlerWithErrorFunc(f interface{}, ef ErrorFunc) http.Handler {
 				err = json.NewDecoder(r.Body).Decode(in)
 				if err != nil {
 					w.WriteHeader(http.StatusUnprocessableEntity)
-					w.Write(requestParamErrorResp)
+					w.Write(unprocessableRequestParamsResp)
 					return
 				}
 
@@ -168,6 +173,6 @@ func ToHandlerWithErrorFunc(f interface{}, ef ErrorFunc) http.Handler {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write(noDataSuccessResp)
+		w.Write(successWithoutDataResp)
 	})
 }

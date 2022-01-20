@@ -266,7 +266,7 @@ func TestToHandlerFunc_UnprocessableEntity(t *testing.T) {
 
 	resp := w.Result()
 	assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
-	assert.Equal(t, string(requestParamErrorResp), string(w.Body.Bytes()))
+	assert.Equal(t, string(unprocessableRequestParamsResp), string(w.Body.Bytes()))
 }
 
 var (
