@@ -36,6 +36,10 @@ func ToHandler(f interface{}) http.Handler {
 	return ToHandlerWithErrorFunc(f, nil)
 }
 
+func ToHandlerFunc(f interface{}) http.HandlerFunc {
+	return ToHandlerFuncWithErrorFunc(f, nil)
+}
+
 // ErrorFunc is used to make error impl type Coder
 // e.g. gRPC status error
 // import (
@@ -54,6 +58,10 @@ func ToHandler(f interface{}) http.Handler {
 type ErrorFunc func(error) error
 
 func ToHandlerWithErrorFunc(f interface{}, ef ErrorFunc) http.Handler {
+	return ToHandlerFuncWithErrorFunc(f, ef)
+}
+
+func ToHandlerFuncWithErrorFunc(f interface{}, ef ErrorFunc) http.HandlerFunc {
 	if f == nil {
 		panic("f cannot be nil")
 	}
@@ -111,7 +119,7 @@ func ToHandlerWithErrorFunc(f interface{}, ef ErrorFunc) http.Handler {
 		panic("last return param is not error")
 	}
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		var err error
 
 		w.Header().Set("Content-Type", "application/json")
@@ -174,5 +182,5 @@ func ToHandlerWithErrorFunc(f interface{}, ef ErrorFunc) http.Handler {
 
 		w.WriteHeader(http.StatusOK)
 		w.Write(successWithoutDataResp)
-	})
+	}
 }
